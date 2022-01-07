@@ -157,7 +157,6 @@ const getAllProperties = function (options, limit = 10) {
     queryParams.push(`%${options.city}%`);
     //add to initial queryString
     multiWhereRequest.push(`city LIKE $${queryParams.length}`);
-  
   }
 
   //3
@@ -190,7 +189,7 @@ const getAllProperties = function (options, limit = 10) {
   queryParams.push(limit);
 
   //add the rest to query request
-  queryString += multiWhereRequest.join(' AND '); // --> 'a AND b AND c'
+  queryString += multiWhereRequest.join(" AND "); // --> 'a AND b AND c'
   queryString += `
   GROUP BY properties.id
   ORDER BY cost_per_night
@@ -211,24 +210,34 @@ exports.getAllProperties = getAllProperties;
  * @return {Promise<{}>} A promise to the property.
  */
 const addProperty = function (property) {
-
   const values = [
-    property.title, 
-    property.description, 
+    property.title,
+    property.description,
+    property.number_of_bedrooms,
+    property.number_of_bathrooms,
+    property.parking_spaces,
+    property.cost_per_night,
     property.thumbnail_photo_url,
     property.cover_photo_url,
-    property.cost_per_night,
     property.street,
+    property.country,
     property.city,
     property.province,
     property.post_code,
-    property.country,
-    property.parking_space,
-    property.number_of_bathrooms,
-    property.number_of_bedrooms,
-    property.,
-
   ];
-  
+
+  return pool
+    .query(
+      `INSERT INTO properties (title, description, number_of_bedrooms, number_of_bathrooms, parking_spaces, cost_per_night, thumbnail_photo_url,cover_photo_url, street, country , city, province, post_code)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      RETURNING  *;`,
+      values
+    )
+    .then((result) => {
+      return result.rows[0];
+    })
+    .catch((err) => {
+      console.log(err.message);
+    });
 };
 exports.addProperty = addProperty;
