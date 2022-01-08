@@ -113,16 +113,6 @@ exports.getAllReservations = getAllReservations;
  * @param {{}} options An object containing query options.
  * @param {*} limit The number of results to return.
  * @return {Promise<[{}]>}  A promise to the properties.
- * 
- * SELECT  properties.id, properties.title, properties.cost_per_night, AVG(property_reviews.rating) as average_rating 
-FROM properties JOIN property_reviews 
-ON property_id = properties.id
-WHERE city LIKE '%ancouv%'
-GROUP BY properties.id
-HAVING AVG(property_reviews.rating) >=4
-ORDER BY cost_per_night
-LIMIT 10;
- * 
  */
 const getAllProperties = function (options, limit = 10) {
   //array for query params coming from options
@@ -132,73 +122,70 @@ const getAllProperties = function (options, limit = 10) {
   let queryString = `
   SELECT  properties.* , AVG(property_reviews.rating) as average_rating 
   FROM properties JOIN property_reviews 
-  ON property_id = properties.id
-  WHERE 
-  `;
+  ON property_id = properties.id `;
 
-  // MIGHT BE WE NEED
-  let multiWhereRequest = [];
-  // then multiWhereRequest.join(' AND '); // --> 'a AND b AND c'
+  //0
+  //if no params passing
+  let insertWhere = 0;
 
   // 1
   //if an owner_id is passed in, only return properties belonging to that owner
 
   if (options.owner_id) {
+    queryString += insertWhere === 0 ? " WHERE " : " AND ";
+    insertWhere++;
     //add first element to array
     queryParams.push(`${options.owner_id}`);
     //add to initial queryString
-    multiWhereRequest.push(` properties.owner_id = $${queryParams.length} `);
+    queryString += ` properties.owner_id = $${queryParams.length} `;
   }
 
   //2
   // if city inserted in request
   if (options.city) {
+    //count conditions
+    queryString += insertWhere === 0 ? " WHERE " : " AND ";
+    insertWhere++;
+
     //add first element to array as a string same way as for LIKE ,imprecise value
     queryParams.push(`%${options.city}%`);
     //add to initial queryString
-    multiWhereRequest.push(`city LIKE $${queryParams.length}`);
+    queryString += `city LIKE $${queryParams.length}`;
   }
 
   //3
   // if a minimum_price_per_night and a maximum_price_per_night, only return properties within that price range
   if (options.minimum_price_per_night) {
+    queryString += insertWhere === 0 ? " WHERE " : " AND ";
+    insertWhere++;
     queryParams.push(options.minimum_price_per_night);
-    multiWhereRequest.push(
-      ` properties.cost_per_night * 100 >= $${queryParams.length}`
-    );
+    queryString += ` properties.cost_per_night * 100 >= $${queryParams.length}`;
   }
   if (options.maximum_price_per_night) {
+    //count conditions
+    queryString += insertWhere === 0 ? " WHERE " : " AND ";
+    insertWhere++;
     queryParams.push(options.maximum_price_per_night);
-
     //add to initial queryString
-    multiWhereRequest.push(
-      ` properties.cost_per_night * 100 <= $${queryParams.length} `
-    );
+    queryString += ` properties.cost_per_night <= $${queryParams.length} `;
   }
-
   //4
   //if a minimum_rating is passed in, only return properties with a rating equal to or higher than that
   if (options.minimum_rating) {
+    //count conditions
+    queryString += insertWhere === 0 ? " WHERE " : " AND ";
+    insertWhere++;
     queryParams.push(options.minimum_rating);
-
-    multiWhereRequest.push(` average_rating  >= $${queryParams.length}`);
+    queryString += ` property_reviews.rating  >= $${queryParams.length}`;
   }
-
   // 5
   // add last element to array
   queryParams.push(limit);
-
   //add the rest to query request
-  queryString += multiWhereRequest.join(" AND "); // --> 'a AND b AND c'
   queryString += `
   GROUP BY properties.id
   ORDER BY cost_per_night
-  LIMIT $${queryParams.length};
-  `;
-
-  //check what we send
-  console.log(queryString, queryParams);
-
+  LIMIT $${queryParams.length};`;
   //run the query
   return pool.query(queryString, queryParams).then((res) => res.rows);
 };
